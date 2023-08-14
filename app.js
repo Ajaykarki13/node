@@ -1,6 +1,9 @@
 //importing mongoose using node.js
 const mongoose = require('mongoose');
 const userSchema = require('./userSchema'); // Use 'require' for CommonJS modules
+//to get sessionID install 2 dependencies
+const session = require('express-session')
+const mongosession = require('connect-mongodb-session')(session)
 
 //importing express
 const express = require('express')
@@ -11,8 +14,31 @@ const port = 8000
 app.use(express.json());  //for parsing json data
 app.use(express.urlencoded({extended:true}));  //for parsing url-encoded data
 /////
+const mongo_URI = `mongodb+srv://ajayMongo:ajaymongodbkarki@cluster0.mzwwrj3.mongodb.net/firstdatabase`
+
+//store
+const store = new mongosession({
+  uri:mongo_URI,
+  collection:"sessions"
+})
+//build session id for authentication
+app.use(session({
+secret:'this should be secret key',
+resave:false,
+saveUninitialized:false,
+store:store,
+}))
+
+//mongodb connection
+
+mongoose.connect(mongo_URI).then(()=>{
+    console.log('mongodb connected yayy!!')
+}).catch((err)=>{
+    console.log(err)
+})
 
 //creating api endpoints
+
 app.get('/', (req, res) => {
   res.send('Hello World!')
 })
@@ -48,6 +74,11 @@ const {name,email,password,tele} = req.body;
         tele : tele,
     })
   await user.save();
+  console.log(req.session)
+
+  //storing sessionID in db after succesful login and in client cookie
+  req.session.isAuth = true;
+
   console.log(user)
     return res.send({message:'registration succesful',status:201})
 }
@@ -58,14 +89,11 @@ catch (error) {
 
 })
 
-//mongodb connection
-
-const mongo_URI = `mongodb+srv://ajayMongo:ajaymongodbkarki@cluster0.mzwwrj3.mongodb.net/firstdatabase`
-
-mongoose.connect(mongo_URI).then(()=>{
-    console.log('mongodb connected yayy!!')
-}).catch((err)=>{
-    console.log(err)
+app.get('/dashboard',(req,res)=>{
+  if(req.session.isAuth){return res.send('access to restricted data')}
+  else{
+    return res.send("Invalid session")
+  }
 })
 
 //start the server
